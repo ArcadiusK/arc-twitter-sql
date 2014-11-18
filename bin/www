@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+var debug = require('debug')('twitter-js');
+var app = require('../app');
+
+var store = require('../store');
+var swig = require('swig');
+var Tweet = require('../models').Tweet;
+var User = require('../models').User;
+
+app.set('port', process.env.PORT || 3000);
+
+var server = app.listen(app.get('port'), function() {
+  debug('Express server listening on port ' + server.address().port);
+});
+
+io = require('socket.io').listen(server);
+
+io.on('connection', function(socket) {
+	socket.on('outgoing', function(tweet) {
+		// the world is our oyster
+
+
+    var newTweetId;
+
+    Tweet.findAndCountAll().complete(function(err, result){
+      newTweetId = result.count+1;
+    });
+
+    User.find({ where: {name:tweet.name}}).complete(function(err, user){
+
+      if(user){
+
+        Tweet.create({id: newTweetId, UserId: user.id , tweet: tweet.text}).complete(function(err, tweet){
+
+          var html = swig.renderFile(__dirname + '/../views/tweet.html', {tweet: tweet});
+          io.sockets.emit('incoming', html);
+        });
+      }
+    });
+
+
+	})
+})
